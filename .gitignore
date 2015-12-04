@@ -1,0 +1,5 @@
+# LATEX temp files
+*.aux
+*.toc
+*.nav
+*.log

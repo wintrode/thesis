@@ -1,0 +1,127 @@
+
+% This template was originally by R. Jacob Vogelstein
+% Updated on March 1, 2010 by Noah J. Cowan
+
+
+\documentclass[12pt,oneside,final]{thesis}
+
+\usepackage[caption=false,list=true]{subfig}
+
+\usepackage{capt-of}
+
+\captionsetup*[subfigure]{position=bottom}
+
+
+\usepackage{cite}
+\usepackage{amsmath,amsfonts}
+\usepackage{graphicx,booktabs}
+\graphicspath{{./figs/}}
+\usepackage{fixltx2e}
+\usepackage{array}
+% wrapfig is fragile: use sparingly
+\usepackage{wrapfig} 
+%\usepackage{times}  % Use this for ugly fonts
+
+%\usepackage{caption}
+\setcounter{lofdepth}{2} 
+
+\usepackage{fancyhdr}    % Use nice looking headers along with the required footer page numbers   
+%\usepackage[hypertex]{hyperref}
+\usepackage{hyperref}
+
+%Define the header/footer style
+\pagestyle{fancy}
+\fancyhf{}
+\setlength{\headheight}{15pt}
+\lhead{\leftmark}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\fancypagestyle{plain}{% Redefine ``plain'' style for chapter boundaries
+\fancyhf{} % clear all header and footer fields
+\fancyfoot[C]{\thepage} % except the center
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}}
+
+%\tolerance=10000
+
+%\makeglossary % enable the glossary
+
+\usepackage{tikz}
+\usetikzlibrary{bayesnet}
+
+\usepackage[mathletters]{ucs}
+\usepackage[utf8x]{inputenc}
+
+\usepackage[noend]{algorithmic}
+\usepackage{algorithm}         
+\numberwithin{algorithm}{chapter}
+%\usepackage{algorithmicx}       
+
+\usepackage{setspace}
+
+\renewcommand{\algorithmicprint}{\textbf{Draw}}
+
+\newcommand{\forbody}[1]{ #1 \ENDFOR}
+\newcommand{\ifbody}[1]{ #1  \ENDIF}
+\newcommand{\whilebody}[1]{ #1  \ENDWHILE}
+
+\renewcommand\algorithmiccomment[1]{%
+  \hfill\#\ #1%
+}
+
+\DeclareMathOperator*{\argmax}{\arg\!\max}
+\usepackage[toc,page]{appendix}
+
+\DeclareMathOperator*{\Avg}{Avg}
+
+\usepackage{color}
+\usepackage{colortbl}
+
+\newcommand{\attrib}[1]{% 
+  \nopagebreak{\raggedleft\footnotesize #1\par}}
+
+\begin{document}
+
+\title{Topic-Enhanced Models for Speech Recognition and Retrieval}
+\author{Jonathan Wintrode}
+\degreemonth{November}
+\degreeyear{2015} 
+\dissertation
+\doctorphilosophy
+\copyrightnotice
+
+
+% add your chapters, best way is to have separate TeX files for each chapter
+\include{chapter0}
+\include{chapter1}
+\include{chapter2}
+\include{chapter3}
+\include{chapter4}
+\include{chapter5}
+\include{chapter6}
+\include{chapter7}
+\include{chapter8}
+
+% note the numbers in this thesis should correspond to rev. 1113.
+
+\include{appendixA}
+\include{appendixB}
+\include{appendixC}
+
+
+%% REFERENCES
+
+% if you use BIBTEX
+\bibliographystyle{IEEEtran}
+\bibliography{thesis}
+
+\begin{vita}
+
+\begin{wrapfigure}{l}{0pt}
+\includegraphics[width=2in,height=2.5in,clip,keepaspectratio]{kangaroo}
+\end{wrapfigure}
+
+Jonathan Wintrode received the A.\ B.\ degree \textit{cum laude} in Computer Science from Harvard University in 2000, the M.\ S.\ degree in Computer Science from the Naval Postgraduate School in 2005, enrolled in the Computer Science Ph.D.\ program at Johns Hopkins University in 2010, and completed the M.\ S.\ E.\ degree in Computer Science in 2014.  He won the Naval Postgraduate School Computer Science Department's Outstanding Department of Defense Student Award in 2005.
+
+\end{vita}
+\end{document}

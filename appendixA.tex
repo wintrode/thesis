@@ -1,0 +1,42 @@
+\newpage
+\appendix
+\chapter{Topic Drift Gradient Descent Derivation} 
+% the \\ insures the section title is centered below the phrase: AppendixA
+
+We present a method for estimating $\widehat{\lambda}_w$ for each word $w$ in the classification training corpus using a minimum classification error (MCE) training \cite{juang1992}, following a derivation for the gradient-descent update given by \cite{hazen2008}.   The major difference between derivations is that the parameter $\lambda_w$ we wish to optimize occurs inside the decay function, so we are obliged to take the partial derivative of the decay, $d(p,\lambda_w)$ as well as of the Naive Bayes scoring function. 
+
+The MCE method attempts to minimize a loss function $l(D)$ over the training corpus, where $l$ is defined for each document $D$.  The loss function is defined in terms of a misclassification measure $M(D)$, the same measure as in \cite{hazen2008}, and loss function $l(D)$, which maps $M(D)$ to a $[0,1]$ range.   Here $t_C$ is the correct topic label for $D$ and and $t_I$ is the incorrect topic with the highest score.  For notational simplicity, we also define $M(w)$ as the word specific component of $M(D)$.
+
+\begin{align}
+M(D) &= S(t_I|D)- S(t_C|D)\\
+l(D) &= \frac{1}{1 + e^{-\beta M(D)}}\\
+M(w) &= log\left(\frac{P(w|t_I)}{P(w|\overline{t_I})}\right) - log\left(\frac{P(w|t_C)}{P(w|\overline{t_C})}\right)                    
+\end{align}                                                                      
+
+The scoring function is defined by combining a log-likelihood ratio form of Naive Bayes (Equation~\ref{nbOld}) with the decay-weighted counts (Equation ~\ref{eq8}.  We obtain an $S(t|D)$ where the per-word contribution is a weighted sum over each position, rather than a single term (Equation~\ref{nbNew}).
+
+\begin{align}                                                                   
+S(t|D) &= \sum_{w\in D}{c_w\cdot log \left(\frac{P(w|t)}{P(w|\overline{t})}\right)} \label{nbOld}\\
+c_w &= \sum_{i=1}^{|D|}{d(\frac{i}{|D|},\widehat{\lambda}_w) \cdot I_{w}(w_i)} \label{eq8} \\
+S(t|D) &= \sum_i^{|D|}{d(\frac{i}{|D|},\lambda_w) \cdot log \left(\frac{P(w_i|t)}{P(w_i|\overline{t})}\right)} \label{nbNew}
+\end{align}                                                                      
+
+We now compute the partial derivative and update equations for gradient-descent optimization of $M(D)$, which contain our decay function $d(p,\lambda_w)$.
+\begin{equation}
+\frac{ \partial l(D) }{ \partial \lambda_{w} } = \beta\cdot l(D)(1 - l(D))\cdot M(w)
+\left [ {\sum_i^{|D|}{\frac{\partial d(\frac{i}{|D|},\lambda_w)}{\partial \lambda_w}}} \right ]
+\end{equation}                                                                                                                                            
+\begin{equation}        
+  {\lambda_w}' = \lambda_w - \epsilon \frac{1}{N}\sum_{j=1}^N{\frac{\partial l(D_j)}{\partial \lambda_w}}
+\end{equation}                                                                                                                                            
+
+Given the computational cost of performing the gradient descent, we evaluate the MCE training using only the exponential and Gaussian decay functions, which performed better in our static tests.  The partial derivatives for $d(p,\lambda_w)$ are given as follows:
+\begin{align}
+\frac{\partial d_{exp}}{\partial \lambda_w} &= -p \cdot exp \left({ -\lambda_w \cdot p }\right)\\
+\frac{\partial d_{gauss}}{\partial \lambda_w} &= -p^2\cdot{\lambda_w}^2 \cdot exp \left({ -\frac{{\lambda_w}^2 \cdot p^2}{2} }\right)                      
+\end{align}     %\chapter{Topic ID result Tables}
+
+In our experiments we use 5-fold cross-validation to compute the training loss.  We found empirically that for the English data $\epsilon=10$ and $\beta=0.01$ achieved the best results, whereas for Spanish $\epsilon=100$ and $\beta=0.1$ were best.  
+
+\label{sec:mceAppendix}
+\chaptermark{Appendix}

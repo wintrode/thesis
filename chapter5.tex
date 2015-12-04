@@ -1,0 +1,348 @@
+
+
+\chapter{Cache-augmented Latent Topic Models}
+\label{sec:klda}
+\chaptermark{Cache-augmented Latent Topic Models}
+
+We have thus far empirically shown ways in which topic information as \textit{local context} (repetition) and \textit{broad context} (subject matter) can improve speech retrieval tasks.  Our cascaded mixture of a standard Dirichlet-Multinomial topic mixture model (LDA) with cached N-grams suggests that jointly modeling should yield similar results.  The goal of this chapter is to construct a formal model capturing both types of context and deriving the sampling distributions necessary for an efficient implementation.
+
+Given the related space of topic and language models we aim to introduce location dependency while preserving the power-law property of Dirichlet-Multinomial distributions.  Additionally, given the results of the previous chapter a LDA-style unigram topic mixture is easily interpolated with traditional backoff N-gram language models.  As our goal is to apply the model in speech recognition and retrieval, we do not want to give up the proven effectiveness of short N-gram contexts.
+
+To this end we propose a straightforward extension of the standard LDA topic model \cite{blei2003latent,steyvers2007} whereby words can be generated \textit{either} from a latent topic or from a document-level cache.  At each word position we flip a biased coin.  Based on the outcome we either generate a latent topic and then the observed word, or we pick a new word directly from a document-level cache of already observed words.  In this model we simultaneously learn the underlying topics and the tendency towards repetition.
+
+The rest of this chapter is organized as follows.  We first present the model in its generative form.  From this we can derive the joint probability for the observed and latent variables and from the joint probability we then derive sampling distributions necessary for parameter estimation and inference via a Gibbs sampling (Markov Chain Monte Carlo) procedure.
+
+\section{Cache-augmented Generative Process}
+
+As with LDA, we assume documents in a corpus a generated from $\mathcal{T}$ latent topics.  For this chapter, we will use the term \textit{topic} specifically to refer to a unigram distribution over a vocabulary of size $V$ (cf. \cite{wallach2006}).  Each topic $t$ is denoted by $\phi^{(t)}$, a Multinomial random variable with $V$ dimensions, and the vector component $\phi^{(t)}_v$ is the probability $P(w_v|t)$.  As with LDA, topics are drawn from a Dirichlet distribution with uniform prior $\beta$.
+
+\begin{algorithm}[t]
+\caption{$\kappa$-LDA cache-augmented generative process\label{alg5:kLDA}}
+\begin{algorithmic}[1]
+\FOR{topic $t \in \mathcal{T}$}     
+    \PRINT{$\phi^{(t)}\sim\mbox{Dirichlet}(\beta)$}
+    \COMMENT{Draw topic distributions}
+\ENDFOR                                                
+
+\FORALL{$d\in\mathcal{D}$}
+	\PRINT{$\theta^{(d)}\sim\mbox{Dirichlet}(\alpha)$}
+    \COMMENT{Draw topic proportions}
+    \PRINT{$\kappa^{(d)}\sim\mbox{Beta}(\nu_0,\nu_1)$}
+    \COMMENT{Draw cache proportions}
+    \FOR{ $w_{d,i}, 1 \le i \le |d|$}
+        \PRINT{$k_{d,i} \sim\mbox{Bernoulli}(\kappa^{(d)})$}
+        \COMMENT{Draw cache usage state per word}
+        \IF{$ k_{d,i} = 0$}
+	        \PRINT{$z_{d,i}\sim\theta^{(d)}$}
+			\COMMENT{Draw topic state per word}
+    	    \PRINT{$w_{d,i}\sim\phi^{(t=z_{d,i})}$}
+    	    \COMMENT{Generate word from topic}
+        \ELSE
+        	\PRINT{$w_{d,i}\sim\mbox{Cache}(W_{d,-i},i)$}
+    	    \COMMENT{Generate word from cache}
+        \ENDIF
+    \ENDFOR
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+The topic mixture for a document $d$ is also a Multinomial random variable of $\mathcal{T}$ dimensions, denoted by $\theta^{(d)}$.  Each $\theta^{(d)}$ is also drawn from a Dirichlet distribution, parameterized by the $\mathcal{T}$-dimensional prior $\alpha$.   The vector component $\theta^{(d)}_t$ gives the probability for a topic given the document, $P(t|d)$.  In terms of topic mixtures, our model acts in the same manner as an LDA model, and our implementation follows the best practices from Wallach et al. (cf. \cite{wallach2006}) in periodically re-estimating the hyperparameters $\beta$ and $\alpha$.
+
+% reference !  the other work treats the cache as a latent topic
+Our primary extension of the basic LDA topic model is a formal integration of a document-level cache to the generative process and sampling mechanisms.   To capture the interaction with cached local context, we introduce two additional sets of variables, $\kappa^{(d)}$ and $k_{d,i}$. The state $k_{d,i}$ is a Bernoulli random variable where a value of 1 indicates that the word $w_{d,i}$ is to be drawn from the cache.  A value of 0 for $k_{d,i}$ indicates that $w_{d,i}$ will be drawn from the latent topic state.  
+
+The $\kappa^{(d)}$ variable is a document specific prior on the cache state $k_{d,i}$.  We intend for this latent state to capture the amount of repetition present in the document, and by extension, the corpus.  We evaluate this empirically in Chapter 6.  We $\kappa^{(d)}$ be a Beta prior  for the Bernoulli state variables $k_{d,i}$.  The Beta variable is parameterized by the terms $\nu_0$ and $\nu_1$, which can be equivalently expressed as a two-dimensional Dirichlet prior $\nu$.  As with the Dirichlet priors on the topic and document multinomials, the Beta-Bernoulli conjugacy allows for a straightforward formulation of the joint probability $P(W,Z,K,\Phi,\Theta,\kappa)$ for subsequent inference tasks. %  from which we derive densities for Gibbs sampling. 
+
+\begin{figure}[t]
+\begin{center}
+\subfloat[LDA\label{subfig5:ldaPlates}]{%
+    \scalebox{1.1}{\input{model_lda}}
+}
+\hfill
+\subfloat[Proposed Model\label{subfig5:kldaPlates}]{
+        \scalebox{1.2}{\input{model_clda_unigram}}
+}
+\end{center}
+\caption[Plate diagrams for LDA and $\kappa$LDA]{Plate diagrams illustrating the differences between LDA and our proposed model\label{fig5:plates}}
+\end{figure}
+
+This generative process is provided as pseudocode in Algorithm~\ref{alg5:kLDA}.  For comparison we also give the generative process psuedocode for standard LDA as Algorithm~\ref{alg5:LDA}.  Our notation in Algorithm~\ref{alg5:kLDA} for the cache distribution at a specific word $w_{d,i}$, $Cache(W_{d,-i},i)$, is intended to convey that when $k_{d,i}=1$, the generative distribution for $w_{d,i}$ depends only on the observed words in $d$.  We use the shorthand $W_{d,-i}$ to denote the sequence of words in $d$ without $w_{d,i}$, which is equivalent to the set difference: $\{w_{d,1},\ldots,w_{d,|d|}\} \setminus w_{d,i}$ 
+
+Plate diagrams contrasting our model with the standard LDA model are provided in Figure~\ref{fig5:plates}.  Graphically, we can illustrate the dependence of the current word $w_{d,i}$ both on the broad topic context, via latent topic state $z_{d,i}$ as well a cache of observed words, which we denote as $W_{d,-i}$ (cf. Figure~\ref{subfig5:kldaPlates}).  Within this notation, observed variables are shaded, latent variables unshaded, and the quantity at the lower right portion of the plate indicated the number of i.i.d. instances of the set of variables contained within.
+
+We do not specify whether the cache component contains of unigrams or higher order N-grams.  Neither do we need to specify the size of the cache or any decay properties given the position $i$ in the document.  Without loss of generality, we can subsequently show that the model as presented easily handles any such variations of the cache that depend only on the observed words.
+
+
+\begin{algorithm}[H]  
+\caption{LDA generative process\label{alg5:LDA}}
+\begin{algorithmic}[1]
+\FOR{topic $t \in \mathcal{T}$}
+    \PRINT{$\phi^{(t)}\sim\mbox{Dirichlet}(\beta)$}
+    \COMMENT{Draw topic distributions}
+\ENDFOR                                                
+
+\FORALL{$d\in\mathcal{D}$}
+	\PRINT{$\theta^{(d)}\sim\mbox{Dirichlet}(\alpha)$}
+    \COMMENT{Draw topic proportions}
+    \FOR{ $w_{d,i}, 1 \le i \le |d|$}
+        \PRINT{$z_{d,i}\sim\theta^{(d)}$}
+		\COMMENT{Draw word topic state}
+   	    \PRINT{$w_{d,i}\sim\phi^{(t=z_{d,i})}$}
+   	    \COMMENT{Generate word from topic}
+    \ENDFOR
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+
+%First we need to present the generative story for our proposed models, from which we can enumerate the latent and observed variables and express the model likelihood over a set of spoken documents.
+Given this procedure and the dependencies between variables, we can factor the joint probability of observed and latent variables as follows:
+\begin{equation}
+\begin{aligned}
+P(W,Z,K,\Theta,\Phi|\alpha,\beta,\nu) = P(\Phi|\beta)\cdot  P(\Theta|\alpha)\cdot P(\kappa|\nu)\cdot P(W,Z,K|\Theta,\Phi,\kappa)& \label{eqn5:joint} \\
+= P(\Phi|\beta)\cdot P(\Theta|\alpha) \cdot P(\kappa|\nu) \cdot P(Z|\Theta,\Phi) \cdot P(K|\kappa)\cdot P(W|Z,K)& 
+\end{aligned}
+\end{equation}
+We use uppercase letters to denote sequences of the variables from  Algorithm~\ref{alg5:kLDA} and Figure~\ref{subfig5:kldaPlates}.  
+
+Now that we can express this factorization of the joint distribution, what we are most interested in for this and other graphical models is an estimate of the posterior distribution of the latent variables given the observed data.  In our cases, we want to estimate the distribution of the various $(\phi^{(t)}, \theta^{(d)},\kappa^{(d)})$, that is the \textit{\textbf{topics}}, \textbf{\textit{document-specific topic mixtures}}, and \textbf{\textit{document-specific cache usage}}, using the observed word sequences.  Without a closed-form solution, we need to turn to \textit{approximate posterior inference}, and in particular we employ a Collapsed Gibbs Sampling approach.
+
+\section{Collapsed Gibbs Sampler}
+\label{sec:sampler}
+As was outlined in Section~\ref{sec:postInf}, in order to obtain the necessary machinery for a Gibbs sampler, we must obtain the sampling distributions for our latent variables $Z$ and $K$ where the value of a single latent variable is conditioned on the current state of all other variables, observed and unobserved (Equations~\ref{eqn5:zsamp},\ref{eqn5:ksamp}).   Here we present a derivation of both sampling distributions, how the per-document cache operates within the sampling framework, and the bookkeeping required for a reasonable implementation.
+\begin{align}
+P(z_{d,i}|W,Z_{-i},K) \label{eqn5:zsamp}\\
+P(k_{d,i}|W,Z,K_{-i}) \label{eqn5:ksamp}
+\end{align}
+
+First, we simplify the joint probability by \textit{collapsing} the priors - integrating over $\Phi$, $\Theta$, and $K$.  This is a common technique for latent variable models such as LDA.   We collapse the priors in each factor of the joint probability to transform $P(W,Z,K,\Theta.\Phi)$ from Equation \ref{eqn5:collapsed} to \ref{eqn5:collapsed2}: 
+\begin{align}
+\begin{split}
+P(W,Z,K,\Theta,\Phi|\alpha,\beta,\nu)
+&=  \\
+P(\Phi|\beta) &\cdot P(\Theta|\alpha) \cdot P(\kappa|\nu) \cdot P(Z|\Theta,\Phi) \cdot P(K|\kappa)\cdot P(W|Z,K) 
+\end{split} \label{eqn5:collapsed} \\
+%\end{equation}
+%\noindent to:
+%\begin{align}
+P(W,Z,K|\alpha,\beta,\nu) &= 
+P(W|Z,K,\beta) \cdot P(Z|\alpha) \cdot P(K|\nu) \label{eqn5:collapsed2}
+\end{align}
+
+\noindent We integrate out the priors $\Phi$, $\Theta$, and $K$ in a straightforward fashion because of the Dirichlet-Multinomial and Beta-Bernoulli conjugacy and conditional independence assumptions.
+
+The second step in the derivation is to obtain the sampling distributions from this collapsed joint distribution.  It follows that:
+\begin{align}
+P(z_{d_0,j}=t_0|W,Z_{-j},K,\alpha,\beta,\nu) &= \frac{P(W,Z,K|\alpha,\beta,\nu)}{P(W,Z_{-j},K|\alpha,\beta,\nu)} \label{eqn5:zsampler} \\
+P(k_{d_0,j,i}=k_0\in\{0,1\}|W,Z,K_{-i},\alpha,\beta,\nu) &= \frac{P(W,Z,K|\alpha,\beta,\nu)}{P(W,Z,K_{-i}|\alpha,\beta,\nu)} \label{eqn5:ksampler}
+\end{align}
+\noindent The numerator and denominator both refer to the closed form of the collapsed joint distribution, evaluated at particular choices for $W$, $Z$, and $K$ - \textit{the current sampling state plus the new possible values $t_0$ and $k_0$}.  The only difference is that the denominator does not contain terms for the state to be sampled.  
+
+We have modeled our subsequent derivations after a very useful tutorial on Gibbs sampling by Korsos and Taddy (cf. \cite{korsos2011gibbs}).  They follow the usage from Steyvers et al. where topics are represented by $\Phi$, states by $Z$, per-document topic priors by $\Theta$ and hyperparameters $\alpha$ and $\beta$.   Keeping with this notation, we now show how to obtain the collapsed form for each factor of the joint probability (Equation~\ref{eqn5:collapsed}).  
+
+\subsection{Notation}
+To make the derivations of each factor readable, we introduce a handful of count vectors and other shorthand notations.  First, we use the term $I(\cdot)$ as an indicator function that returns 1 when its arguments are true and 0 otherwise.  Secondly, we use the notation $B(a)$ for both the Dirichlet and Beta $pdf$ normalizing factor given that the latter is a two-parameter instance of the generalized Beta function (cf. Eqn.~\ref{betaF}).
+\begin{align}
+B(a) &= \frac{\prod_{i=1}^{|a|}\Gamma(a_i)}{\Gamma(\sum_{i=1}^{|a|}a_i)} \label{betaF}
+\end{align}
+\noindent Count vectors that capture the current sampler state can be defined in terms of sums over indicator functions.
+
+Each topic state variable $z_{d,i}\in Z$ is associated with a particular word $w_{d,i}=w_0$ and has an assigned state value corresponding to some topic $t_0$ - when the corresponding cache indicator $k_{d,i}=0$.  We aggregate the counts of states associated with a topic $t_0$ as vectors $C^{(t_0)}$ in the dimension of the vocabulary.  Subscripted by a particular word we can express the current topic-word association as:
+\begin{equation}
+	C^{(t_0)}_{w_0} = \sum_{d=1}^D \sum_{i=1}^{|d|} I(w_{d,i}=w_0 \land k_{d,i}=0 \land z_{d,i}=t_0)
+\end{equation}
+\noindent We also need to capture the current per-document topic mixture which we express by the $\mathcal{T}$-dimensional vector $N^{(d)}$, which is given by:
+\begin{equation}
+	N^{(d_0)}_{t_0} = \sum_{i=1}^{|d_0|} I(k_{d_0,i}=0 \land z_{d_0,i}=t_0)
+\end{equation}
+
+Each cache state variable $k_{d,i}\in K$, although also associated with a particular word $w_{d,i}=w_0$, as we will see, need only contribute to a document-level count. We define two vector terms $L$ and $T$ to capture the number of cache versus topic states in a particular document.
+\begin{align}
+	L_d &= \sum_{i=1}^{|d|} I(k_{d,i}=1) \\
+	T_d &= \sum_{i=1}^{|d|} I(k_{d,i}=0) \\
+	 \left[ \sum_{d=1}^D T_d\right]&= \sum_{t=1}^{\mathcal{T}} \sum_{v=1}^V C^{(t)}_{v}
+\end{align}
+
+As we only consider topic-word associations where the word is generated from a topic-state, the $K$ variables divides the corpus into two parts, words generated from the topics or words generated from the cache.  We necessarily have:
+\begin{equation}
+	\sum_{d=1}^D |d| = \left[\sum_{d=1}^D T_d\right] + \left[\sum_{d=1}^D L_d\right]
+\end{equation}
+
+From this, we can also describe our generative model for words by a process whereby a document author (or speaker) introduces some topical word, but then as he or she proceeds, based on a propensity for repetition ($\kappa^{(d)}$), repeats previously uttered words for either syntax or purposes of redundancy.  % does our analysis of individual words bear this out?
+% HERE
+\subsection{Derivations}
+For the term $P(W|Z,K,\beta,\nu)$ we  integrate over the topic prior $\phi$.  The first observation we make is that the cached words do not depend at all on $\phi$, given the current cache state, so we can treat the cache probabilities independent of the topic likelihoods.
+
+{\small
+\begin{align}
+P(W&|Z,K,\beta) \\
+ &= \int_{\phi} P(W|Z,K,\phi)\cdot P(\phi|\beta) d\phi\\
+ &= P_C(W_{\{k_{d,i}=1\}}) \int_{\phi} \left [ \prod_{t=1}^T \prod_{d=1}^D \prod_{i=1}^{|d|} P(w_i|z_{d,i}=t)^{I(k_{d,i}=0)}  \right ] P(\phi|\beta)\, d\phi \\
+&= P_C(W_{\{k_{d,i}=1\}}) \int_{\phi} \left [ \prod_{t=1}^T \prod_{d=1}^D \prod_{i=1}^{|d|} {\phi_{w_i}^{(t)}}^{I(k_{d,i}=0)}  \right ]  \left [ \prod_{t=1}^T \frac{1}{B(\beta)} \prod_{v=1}^V {\phi_v^{(t)}}^{\beta_v-1} \right ]  d\phi\\
+&= P_C(W_{\{k_{d,i}=1\}}) \int_{\phi} \prod_{t=1}^T \left [ \frac{1}{B(\beta)} \prod_{v=1}^V {\phi_v^{(t)}}^{\beta_v + C^{(t)}_v - 1} \right ]  d\phi\\
+&= P_C(W_{\{k_{d,i}=1\}}) \prod_{t=1}^T \left [ \frac{B(\beta + C^{(t)})}{B(\beta)} \right ] 
+\end{align}
+}
+
+We have denoted the cache probability of the sub-sequence of words whose cache state $k_{d,i}$ is currently set to 1 as $P_C(W_{\{k_{d,i}=1\}})$.  Expanding out this term, we obtain:
+\begin{equation}
+P_C(W_{\{k_{d,i}=1\}})=\prod_{d=1}^D \prod_{i=1}^{|d|} P_{cache}(w_{d,i}|W_{d,-i})^{I(k_{d,i}=1)}
+\end{equation}
+\noindent As we stated previously, we have shown our sampler can be constructed independently of the size, order, or any other properties of the cache language model.
+
+Moving on, to  the term $P(K|\nu)$, we integrate out $\kappa$ by means of the Beta-Bernoulli conjugate prior in a manner identical to the Dirichlet-Multinomial prior.
+
+\begin{align}
+P(K|\nu) &= \int_{\kappa} P(K|\kappa)\cdot P(\kappa|\nu) d\nu\\
+ &= \int_{\kappa} \prod_{d=1}^D  \left [ {\kappa^{(d)}}^{L_d} (1-\kappa^{(d)})^{T_d} \right] \left [ \frac{{\kappa^{(d)}}^{\nu_0} (1-\kappa^{(d)})^{\nu_1}}{B(\nu_0,\nu_1)} \right] d\kappa \\
+ &= \int_{\kappa} \prod_{d=1}^D  \left [ \frac{{\kappa^{(d)}}^{\nu_0+L_d} (1-\kappa^{(d)})^{\nu_1+T_d}}{B(\nu_0,\nu_1)} \right] d\kappa \\
+ &= \prod_{d=1}^D  \left [ \frac{B(\nu_0+L_d,\nu_1+T_d)}{B(\nu_0,\nu_1)} \right] 
+\end{align}
+ 
+ 
+The third term $P(Z|\alpha)$ can be obtained in the same manner by integrating over the topic mixtures $\theta$.  This quantity is derived in the same manner as a collapsed Gibbs sampler for standard LDA, except the topic counts must exclude words generated from cache states.
+  
+\begin{align}
+ P(Z|\alpha) &= \int_{\theta} P(Z|\theta)\cdot P(\theta|\alpha) d\theta \\
+  &= \int_{\theta} \prod_{d=1}^{D} \left [ \prod_{i=1}^{|d|} P(z_{d,i}|\theta^{(d)})^{I(z_{d,i}=0)} \right ] P(\theta_d|\alpha) d\theta \\
+  &= \int_{\theta} \prod_{d=1}^{D} \left [ \prod_{i=1}^{|d|} {\theta^{(d)}_{z_{d,i}}}^{I(z_{d,i}=0)} \right ]\frac{1}{B(\alpha)} \prod_{t=1}^T {\theta^{(d)}_t}^{\alpha_t - 1}  d\theta \\
+  &= \int_{\theta} \prod_{d=1}^{D} \left [ \frac{1}{B(\alpha)} \prod_{t=1}^T {\theta^{(d)}_t}^{\alpha_t + N^{(d)}_{t} - 1}  \right ] d\theta \\
+  &= \prod_{d=1}^{D} \left [ \frac{B(\alpha + N^{(d)})}{B(\alpha)}  \right ] \label{zalpha}
+\end{align}
+ 
+
+Combining the closed form for the terms $P(W|Z,K,\beta)$, $P(K|\nu)$, and $ P(Z|\alpha)$ we obtain the desired joint probability $P(W,Z,K|\alpha,\beta,\nu)$:
+
+\begin{equation}
+P_C(W_{\{k_{d,i}=1\}}) \prod_{k=1}^T \left [ \frac{B(\beta + C^{(k)})}{B(\beta)} \right ] \prod_{d=1}^D  \left [ \frac{B(\nu_0+L_d,\nu_1+T_d)}{B(\nu_0,\nu_1)} \right ] \prod_{d=1}^{D} \left [ \frac{B(\alpha +  N^{(d)})}{B(\alpha)}  \right ] 
+\end{equation}
+
+\subsection{Sampling Distributions}
+We can now use this collapsed, factored, joint probability to obtain the sampling distributions needed to update each topic state $z_{d,i}$ and cache state $k_{d,i}$.  For $Z$ we compute the sampling distribution for each possible topic value, iterating over each state, giving $\mathcal{T}\cdot|W|$ computations per iteration over the training corpus.   For $K$, which can take on values $\{0,1\}$, we have 2$\cdot|W|$ computations per iteration, so the overall sampling cost is still linear in the size of the corpus.
+
+The key insight, which has been demonstrated numerous times in derivations for  LDA and similar variants, is that most terms in the joint probability are unchanged when considering different values for a particular state $z_{d,i}$.  Removing the particular state $z_{d_0,j}$ from the sequence only changes the count vectors $C^{(t_0)}$ and $N^{(d_0)}$ for one topic in one dimension ($v=w_{d_0,j})$.  All other $B(\cdot)$ terms in other documents for other topics cancel.  Also, because we are sampling a topic state, we must assume the cache variable $k_{d_0,j}=0$.  This implies that sub-sequences $W_{\{k_{d_0,i}=1\}}$ and $W_{\{k_{d_0,i}=1\},-j}$ are identical, so the cache probabilities cancel as well.
+
+\begin{align}
+P(z_{d_0,j}&=t_0|W,Z_{-j},K,\alpha,\beta,\nu) = \frac{P(W,Z,K|\alpha,\beta,\nu)}{P(W,Z_{-j},K|\alpha,\beta,\nu)} \label{zsampler3} \\
+&= \frac{P(Z|\alpha) \cdot P(W|Z,K,\beta) \cdot P(K|\nu)}{P(Z_{-j}|\alpha) \cdot P(W|Z_{-j},K,\beta) \cdot P(K|\nu)}  \\
+&= \frac{P(Z|\alpha)\cdot P(W|Z,K,\beta)}{P(Z_{-j}|\alpha) \cdot P(W_{-j}|Z_{-j},K,\beta) \cdot P(W_j|\alpha,\beta)} \\
+&\propto \frac{P(Z|\alpha)\cdot P(W|Z,K,\beta)}{P(Z_{-j}|\alpha) \cdot P(W_{-j}|Z_{-j},K_{-j},\beta)} \label{samplerUnnorm2} \\
+&\propto \prod_{d=1}^{D} \left [ \frac{B(\alpha +  N^{(d)})}{B(\alpha +  N^{(d)}_{-j}) } \right ] \cdot \frac{P(W_{k=1})}{P(W_{-j,k=1}) } \cdot \prod_{t=1}^T \left [ \frac{B(\beta + C^{(t)})}{B(\beta + C^{(t)}_{-j}) } \right ]  \\
+&\propto \frac{B(\alpha +  N^{(d_0)})}{B(\alpha +  N^{(d_0)}_{-j})} \cdot \frac{B(\beta + C^{(t_0)})}{B(\beta + C^{(t_0)}_{-j})}
+\end{align}
+
+% assumptions P(W|K...)
+
+Applying the definition of the $B(\cdot)$ function (from the Dirichlet distributions of $\Phi$ and $\Theta$), we can further simplify the various $\Gamma(\cdot)$ expressions.  For brevity, we'll express the components of vector arguments $[\alpha + N^{(d)}]_t$ and $[\beta + C^{(t)}]_v$ as $a_t$ and $c_v$ respectively.
+
+\begin{align}
+P(z_{d_0,j}&=t_0|W,Z_{-j},K,\alpha,\beta,\nu) \label{zsampImpl} \\
+&\propto \frac{B\left(\alpha +  N^{(d_0)}\right) \cdot B\left(\beta + C^{(t_0)}\right) }{ B\left(\alpha +  N^{(d_0)}_{-i}\right) \cdot B\left(\beta + C^{(t_0)}_{-i}\right)} \label{sampler2} \\
+&\propto \frac{\prod_{t=1}^T \Gamma(a_t)}{\Gamma\left(\sum_{t=1}^T a_t \right)} \frac{\Gamma\left(-1+\sum_{t=1}^T a_t \right)}{\Gamma(a_{t_0}-1) \prod_{t\ne t_0} \Gamma(a_t)}
+\frac{ B\left(\beta + C^{(t_0)}\right) }{ B\left(\beta + C^{(t_0)}_{-i}\right)}\\
+&\propto \frac{\Gamma(a_{t_0})}{\left(\sum_{t=1}^T a_t \right)\Gamma(a_{t_0}-1)} \frac{ B\left(\beta + C^{(t_0)}\right) }{ B\left(\beta + C^{(t_0)}_{-i}\right)}\\
+&\propto \frac{a_{t_0}}{\left(\sum_{t=1}^T a_t \right)} \frac{ B\left(\beta + C^{(t_0)}\right) }{ B\left(\beta + C^{(t_0)}_{-i}\right)} \\
+&\propto \frac{a_{t_0}}{\left(\sum_{t=1}^T a_t \right)} \frac{\prod_{v=1}^V \Gamma(c_v)}{\Gamma\left(\sum_{v=1}^V c_v \right)} \frac{\Gamma\left(-1 + \sum_{v=1}^V c_v\right)}{\Gamma(c_{w_{d_0,j}}-1)\prod_{v\ne w_{d_0,j}} \Gamma(c_v)} \\
+&\propto \frac{a_{t_0}}{\left(\sum_{t=1}^T a_t \right)} \frac{ \Gamma(c_{w_{d_0,j}})}{\left(\sum_{v=1}^V c_v \right)\Gamma(c_{w_{d_0,j}}-1)} \\
+&\propto \frac{a_{t_0}}{\left(\sum_{t=1}^T a_t \right)} \frac{ c_{w_{d_0,j}}}{\left(\sum_{v=1}^V c_v \right)} \\
+&\propto \frac{(\alpha_{t_0}+N^{(d_0)}_{t_0})}{\left(\sum_{t=1}^T \alpha_{t}+N^{(d_0)}_{t_0} \right)} \frac{(\beta +C^{(t_0)}_{w_j})}{\left(\sum_{v=1}^V \beta+C^{(t_0)}_{v} \right)} \label{eqn5:zsampImpl}
+\end{align}
+%P(z_i=k_0|W,Z_{-i},\alpha,\beta)
+
+Evaluating Equation~\ref{eqn5:zsampImpl} for each possible topic value $t_0$ gives a proportional set of values that can be used to sample from $P(z_{d,i})$ for each topic state.  In terms of notation, this looks exactly like LDA, except the term-topic counts must not contain words in the sampler state currently drawn from the cache.
+
+%This final equation can be used directly to build a Gibbs sampler for our new model, maintaining the counts $N^{(d)}$ and $C^{(t)}$.  
+For the cache states, we can take a number of simplifying assumptions.  First, if a word $w_{d_0,j}$ is going to be drawn from the cache state ($k_{d_0,j}=1)$ then the topic count vectors $C^{(t)}$ and $C^{(t)}_{-j}$, with and without state $k_{d_0,j}$ are identical, so the $\beta$ terms drop out. Also, the number of topic states is unchanged ($T_d$) and the number of cache states differs only for document $d_0$.   Assuming conditional of the word probabilities from the cache, as one might expect, the sample probability of the cache state depends only on the cache probability of the word in $d_0$ at position $j$ (cf. Equation~\ref{ksampler3}).
+\begin{align}
+P(k_{d_0,j}&=1|W,Z,K_{-j},\alpha,\beta,\nu) = \frac{P(W,Z,K|\alpha,\beta,\nu)}{P(W,Z,K_{-j}|\alpha,\beta,\nu)} \\
+&\propto \frac{P_C(W_{\{k_{d_0,i}=1\}})}{P_C(W_{-j,\{k_{d_0,i}=1\}}) } \cdot \prod_{t=1}^T \left [ \frac{B(\beta + C^{(t)})}{B(\beta + C^{(t)}_{-j}) } \right ] \cdot \prod_{d=1}^{D} \left [ \frac{B(\nu_0+L_d,\nu_1+T_d)}{B(\nu_0+(L_d)_{-j},\nu_1+ (T_d)_{-j}} \right ]  \\
+&\propto P_C(w_{d_0,j}|W_{d,-j})\cdot \frac{B(\nu_0+L_{d_0},\nu_1+T_{d_0})}{B(\nu_0+L_{d_0} - 1,\nu_1+T_{d_0})}  \label{ksampler3}
+\end{align}
+
+However, if a word at ${(d_0,j)}$ is to be drawn from a topic instead (Eqn.~\ref{ksampler2}), the number of cache states ($L_d$) is unchanged for all documents so the cached word sequences $W_{\{k_{d,i}=1\}}$ and $W_{-j,\{k_d,i\}=1}$ are identical, and that term can be removed.  
+
+\begin{align}
+P(k_{d_0,j}&=0|W,Z,K_{-j},\alpha,\beta,\nu) = \frac{P(W,Z,K|\alpha,\beta,\nu)}{P(W,Z,K_{-j}|\alpha,\beta,\nu)} \label{ksampler2} \\
+&= \frac{P(Z|\alpha) \cdot P(W|Z,K,\beta) \cdot P(K|\nu)}{P(Z|\alpha) \cdot P(W|Z,K_{-j},\beta) \cdot P(K_{-j}|\nu)}  \\
+&= \frac{P(W|Z,K,\beta)\cdot P(K|\nu)}{P(W_{-j}|Z,K_{-j},\beta) \cdot P(K_{-j}|\nu) \cdot P(W_j|\alpha,\beta) } \\
+&\propto \frac{P(W|Z,K,\beta)\cdot P(K|\nu)}{P(W_{-j}|Z,K_{-j},\beta) \cdot P(K_{-j}|\nu) } \label{ksamplerUnnorm2} \\
+&\propto \frac{P_C(W_{\{k_{d_0,i}=1\}})}{P_C(W_{-j,\{k_{d_0,i}=1\}}) } \cdot \prod_{t=1}^T \left [ \frac{B(\beta + C^{(t)})}{B(\beta + C^{(t)}_{-j}) } \right ] \cdot \prod_{d=1}^{D} \left [ \frac{B(\nu_0+L_d,\nu_1+T_d)}{B(\nu_0+L_d,\nu_1+ (T_d)_{-j}} \right ]  \\
+&\propto \frac{B(\beta + C^{(z_j)})}{B(\beta + C^{(z_j)}_{-j})} \cdot \frac{B(\nu_0+L_{d_0},\nu_1+T_{d_0})}{B(\nu_0+L_{d_0},\nu_1+T_{d_0} - 1)} 
+\end{align}
+
+
+As with the sampling distribution for $Z$, we can expand the $B(\cdot)$ function and simplify to obtain a closed form for the $K$ sampling distribution values.  Given that the Beta distribution normalizer is a two-parameter case of the generalized $B(\cdot)$ normalizer for the Dirichlet, we get the same simplification result as in Equation~\ref{zsampImpl}.
+
+\begin{align}
+P(k_{d_0,j}&=1|W,Z,K_{-j},\alpha,\beta,\nu)  \\
+& \propto P_C(w_{d_0,j}|W_{d,-j})\cdot \frac{B(\nu_0+L_{d_0},\nu_1+T_{d_0})}{B(\nu_0+L_{d_0} - 1,\nu_1+T_{d_0})} \\
+& \propto P_C(w_{d_0,j}|W_{d,-j})\cdot\frac{\nu_0 + L_{d_0}}{(\nu_0+\nu_1 + |d_0|)}
+\end{align}
+
+\begin{align}
+P(k_{d_0,j}&=0|W,Z,K_{-j},\alpha,\beta,\nu)  \\
+&\propto \frac{B(\beta + C^{(z_j)})}{B(\beta + C^{(z_j)}_{-j})} \cdot \frac{B(\nu_0+L_{d_0},\nu_1+T_{d_0})}{B(\nu_0+L_{d_0},\nu_1+T_{d_0} - 1)}  \\
+& \propto 
+\frac{(\beta +C^{(t_0)}_{w_j})}{\left(\sum_{v=1}^V \beta+C^{(t_0)}_{v} \right)} \frac{\nu_1 + T_{d_0}}{(\nu_0+\nu_1 + |d_0|)} \label{ks01}\\
+& \propto 
+\frac{\nu_1 + T_{d_0}}{(\nu_0+\nu_1 + |d_0|)} \label{ks02}
+\end{align}
+
+As the sampler depends on the prior state of $Z$, which is captured in the count vectors $C^{(t)}$.  If the previous state of $k_{d_0,j}$ were 0, then  $z_{j}$ will have some topic state $t_0$, so the probability mass is proportional to Equation ~\ref{ks01}.  However, if the previous state of $k_{d_0,j}$ were 1, a cache state, then we would argue that the count vectors  $C^{\cdot}$ and $C^{\cdot}_{-j}$ are identical, so mass can be simplified to Equation ~\ref{ks02}.  Other assumptions here for implementation are certainly possible.   A pseudocode example for the sampler is provided in Appendix~\ref{sec:pseudocode}.
+
+\subsection{Summary}
+
+In brief, we've derived the quantities necessary to estimate all the parameters of our proposed model using a Gibbs Sampling procedure.   
+\begin{align}
+P(z_{d_0,j}=t_0|W,Z_{-j},K,\alpha,\beta,\nu) &\propto \frac{(\alpha_{t_0}+N^{(d_0)}_{t_0})}{\left(\sum_{t=1}^T \alpha_{t}+N^{(d_0)}_{t_0} \right)} \frac{(\beta +C^{(t_0)}_{w_j})}{\left(\sum_{v=1}^V \beta+C^{(t_0)}_{v} \right)} \label{eqn5:zsampFinal} \\
+P(k_{d_0,j}=1|W,Z,K_{-j},\alpha,\beta,\nu) &\propto P_C(w_{d_0,j}|W_{d,-j})\cdot\frac{\nu_0 + L_{d_0}}{(\nu_0+\nu_1 + |d_0|)} \label{eqn5:ksampImpl}\\
+P(k_{d_0,j}=0|W,Z,K_{-j},\alpha,\beta,\nu) &\propto 
+\frac{(\beta +C^{(t_0)}_{w_j})}{\left(\sum_{v=1}^V \beta+C^{(t_0)}_{v} \right)} \frac{\nu_1 + T_{d_0}}{(\nu_0+\nu_1 + |d_0|)}  
+\end{align}
+
+At any point in the sampling procedure we can then obtain quantities for the topics, $\phi$, topic mixtures $\theta$, and cache usage $\kappa$ as:
+\begin{align}
+[\phi^{(t)}]_{w} = \frac{\beta_w + C^{(t)}_{w}}{\sum_{v=1}^V \beta_v + C^{(t)}_v} \\
+[\theta^{(d)}]_{t_0} = \frac{\alpha_{t_0} + N^{(d)}_{t_0}}{\sum_{t=1}^\mathcal{T} \alpha_t + N^{(d)}_t} \\
+\kappa^{(d)} = \frac{\nu_0 + L_d}{\nu_0 + \nu_1 + |d|} 
+\end{align}
+
+\section{N-gram Extension}
+Given this framework, it is straightforward (and has been shown elsewhere) to extend the LDA Gibbs sampling algorithm to N-grams (cf. \cite{wang2007topical}). The Topical N-gram model of Wang et al. allows for conditional formation of N-grams.  An alternative approach would be to allow every word drawn from a topic distribution to also be conditioned on the preceding $(N-1)$ words.
+
+%To arrive at the sampler we only need re-derive $P(W|Z,\beta)$ with this assumption.  
+Without any additional constraints, each topic $\phi$ can now be expressed as a set of multinomial distributions, one for each possible (N-1) length word history.   The unigram parameter $[\phi^{(t)}]_w$ becomes $[\phi^{(h,t)}]_w$, which captures the probability of word $v$, conditioned on the word history $h$ and given topic $t$, $P(w|h,t)$.  As $\phi$ arises only in the sampling distribution for topic states $z_{d,i}$, it turns out we only need a slight modification to the unigram $Z$ sampler (Equation~\ref{eqn5:zsampFinal}).  We only need to recompute the sub-term $P(W|Z,K,\beta)$.   
+
+First, as before, we integrate out the $\phi$ terms (Eqn.~\ref{eqn5:ngram1}).  Although all $\mathcal{T}\cdot V^{N-1}$ distributions appear in $P(W|Z,K,\beta)$ when we compute the sampling distribution, only the terms for the current topic and word history remain (cf. Equation~\ref{eqn5:ngram2}).
+\begin{align}
+P(W&|Z,K,\beta) \\
+ &= \int_{\phi} P(W|Z,K,\phi)\cdot P(\phi|\beta) d\phi\\
+ &= P_C(W_{\{k_{d,i}=1\}}) \int_{\phi} \left [ \prod_{t=1}^T \prod_{d=1}^D \prod_{i=1}^{|d|} P(w_i|h_i,z_{d,i}=t)^{I(k_{d,i}=0)}  \right ] P(\phi|\beta)\, d\phi \\
+&= P_C(W_{\{k_{d,i}=1\}}) \int_{\phi} \left [ \prod_{t=1}^T \prod_{d=1}^D \prod_{i=1}^{|d|} {\phi_{w_i}^{(h_i,t)}}^{I(k_{d,i}=0)}  \right ]  \left [ \prod_{t=1}^T \prod_{h=1}^{V^{N-1}} \frac{1}{B(\beta^{(h)})} \prod_{v=1}^V {\phi_v^{(h,t)}}^{\beta^{(h)}_v-1} \right ]  d\phi\\
+&= P_C(W_{\{k_{d,i}=1\}}) \int_{\phi} \prod_{t=1}^T \left [ \prod_{h=1}^{V^{N-1}} \frac{1}{B(\beta^{(h)})} \prod_{v=1}^V {\phi_v^{(h,t)}}^{\beta_v + C^{(t)}_v - 1} \right ]  d\phi\\
+&= P_C(W_{\{k_{d,i}=1\}}) \prod_{t=1}^T \left [\prod_{h=1}^{V^{N-1}} \frac{B(\beta^{(h)} + C^{(h,t)})}{B(\beta^{(h)})} \right ] \label{eqn5:ngram1}
+\end{align}
+
+
+As with the topics $\phi$, we also index the counts for topics and words by word histories $h$. The counts $C^{(t)}$ from the unigram case become $C^{(h,t)}$, where $[C^{(h,t)}]_w$ is the number of occurrences of $w$ with history $h$ and with topic state $t$.  Because, as with the unigram case, during sampling these count vectors only differ by 1 at any particular word, the $P(W|Z,K,\beta)$ term of the sampling proportions can now be expressed as:
+
+\begin{align}
+\frac{P(W|Z,K,\beta)}{P(W_{-j}|Z_{-j},K,\beta)} &= \prod_{h=1}^{V^{n-1}} \left [ \frac{B(\beta^{(h)} + C^{(h,t)})}{B(\beta^{(h)} + C^{(h,t)}_{-1})} \right ] \label{eqn5:ngram2} \\
+&= \frac{B(\beta^{(h_0)} + C^{(h_0,t)})}{B(\beta^{(h_0)} + C^{(h_0,t)}_{-j})} \\
+&= \frac{\beta^{(h_0)} + C^{(h_0,t)}_{w_{d,j}}}{\sum_{h=1}^{V^{N-1}} \beta^{(h)} + C^{(h,t)}_{w_{d,j}}} \label{eqn5:ngram3}
+\end{align}
+
+%This quantity can be applied to the sampling distributions from 
+\section{Conclusion}
+We have fully described a latent topic model framework the jointly models words as either generated from a broad context (topics) or local context (cache).   We have also derived the computations necessary to perform parameter estimation, by means of approximate posterior inference, using a Gibbs sampler.  Our model can accommodate any type of document-level cache model that conditions the probability of a particular word only on other observed words in the same document.
+
+Two main questions we will address in the remaining chapters.   First, how well does this model capture both topic repetition properties of the data?   Secondly, returning to our motivating problem, does this model generate useful language models for speech retrieval?
+
+
+\begin{figure}[t]
+\begin{center}
+\scalebox{1.2}{\input{model_clda_ngram}}
+\end{center}
+\caption[Ngram $\kappa$LDA]{N-gram Cache-augmented Topic Model}
+\end{figure}
+

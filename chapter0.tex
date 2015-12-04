@@ -1,0 +1,72 @@
+%% FRONTMATTER
+\begin{frontmatter}
+
+% generate title
+\maketitle
+
+\begin{abstract}
+
+This thesis aims to examine ways in which topical information can be used to improve recognition and retrieval of spoken documents.   We consider the interrelated concepts of locality, repetition, and `subject of discourse' in the context of speech processing applications: speech recognition, speech retrieval, and topic identification of speech.  This work demonstrates how supervised and unsupervised models of topics, applicable to any language, can improve accuracy in accessing spoken content.  
+
+This work looks at the complementary aspects of \textit{topic information} in lexical content in terms of local context - locality or repetition of word usage - and broad context - the typical `subject matter' definition of a topic.  By augmenting speech processing language models with topic information we can demonstrate consistent improvements in performance in a number of metrics.  We add locality to bags-of-words topic identification models, we quantify the relationship between topic information and keyword retrieval, and we consider word repetition both in terms of keyword based retrieval and language modeling.  Lastly, we combine these concepts and develop joint models of local and broad context via latent topic models.
+
+We present a latent topic model framework that treats documents as arising from an underlying topic sequence combined with a cache-based repetition model.  We analyze our proposed model \textit{both} for its ability to capture word repetition via the cache and for its suitability as a language model for speech recognition and retrieval. We show this model, augmented with the cache, captures intuitive repetition behavior across languages and exhibits lower perplexity than regular LDA on held out data in multiple languages. Lastly, we show that our joint model improves speech retrieval performance beyond N-grams or latent topics alone, when applied to a term detection task in all languages considered. 
+
+\vspace{1cm}
+
+\noindent Primary Reader: Sanjeev Khudanpur\\
+Secondary Reader: Benjamin Vandurme/David Yarowsky
+
+\end{abstract}
+
+\begin{acknowledgment}
+
+\begin{quotation}
+\noindent A great and glorious thing it is \\
+To learn, for seven years or so, \\
+The Lord knows what of that and this, \\
+\indent Ere reckoned fit to face the foe.\\[2ex]
+\footnotesize Rudyard Kipling, \textsc{Arithmetic on the Frontier} \\
+\end{quotation}
+
+\noindent Like so many good things, a dissertation cannot happen in a vacuum, intellectual, professional or personal, and for the past seven years or so countless friends and colleagues have provided support, ideas, feedback, encouragement, and friendship.  \\
+
+\hangindent=0.7cm \noindent To Sanjeev Khudanpur, thank you for your time, ideas, feedback, patience, quite often signatures, and infectious enthusiasm.
+
+\hangindent=0.7cm \noindent To Ben Vandurme and David Yarowsky, thank you for all your insights and willingness to see this thesis through to then end!
+
+\hangindent=0.7cm \noindent To Jack Godfrey for supporting and encouraging me setting out on this path.
+
+\hangindent=0.7cm \noindent To Cathy Thornton, thank you for always being ready to help in navigating any administrative obstacle that might arise.
+
+\hangindent=0.7cm \noindent To Yenda Trmal, Dan Povey, and the rest of the JHU Kaldi team, thank you for allowing me to be a part of your successes.
+
+\hangindent=0.7cm \noindent To Gypsy Phillips, Jon Nedel, Michelle Fox, and my colleagues in Maryland and across the world, thank you for all of your support, patience, and encouragement over the years. \\
+
+\hfill Merci \`{a} tout et pour tout!
+
+\end{acknowledgment}
+
+\begin{dedication}
+
+ 
+This thesis is dedicated to my family: my wife Brenda and my children Timothy and Alice; to their love, encouragement, patience, and support. Above all, this is for Brenda, who has always believed in me and has never let me stop believing in myself.
+
+
+% χαλεπὰ τὰ καλά
+% Οι αιώνες αντιγράφουν αλλήλους
+% the eons copy themselves
+%
+
+\end{dedication}
+
+% generate table of contents
+\tableofcontents
+
+% generate list of tables
+\listoftables
+
+% generate list of figures
+\listoffigures
+
+\end{frontmatter}

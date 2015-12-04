@@ -1,0 +1,94 @@
+\chapter{Summary and Future Work}
+\label{sec:summary}
+\chaptermark{Summary and Future Work}
+
+This thesis has considered the utility of topic information for speech retrieval from a number of different perspectives.  In a multinational, interconnected, online, and loquacious world, but with limited and expensive traditional annotated linguistic resources, this thesis demonstrates that anyone in the business of delivering relative spoken content to users benefits by leveraging topic information for both speech recognition and retrieval.
+
+This thesis demonstrates that there is a virtuous cycle between topic information and keyword retrieval.  Keyword retrieval drives supervised topic classification of speech, and latent topic information can improve keyword retrieval.  This thesis presents a number of novel techniques to exploit these facts to improve speech recognition and retrieval accuracies across a wide range of languages.  We conclude this thesis with a summary of the specific contributions described in the preceding chapters, and outline a number of promising future directions for this research.
+
+%The topic content of spoken media is primarily contained in a limited number of keywords, and because of this, performance on topic classification tasks can tolerate a high.  Conversely, in the remainder of this thesis we saw how multiple aspects of the topic signal could be leveraged to improve speech recognition and keyword accuracy.
+
+
+\section{Contributions}	
+
+We can summarize the contributions of this thesis in three main areas.  First, we focus on the importance of keywords and locality to topic identification.   Second we present novel techniques for exploiting keyword repetition in any language.   Third, we develop latent topic and language modelling techniques that jointly leverages broad (subject matter) and local (repetition) topic context to improve both speech recognition and retrieval across a broad range of languages.
+
+\subsection{Topic Identification}
+This thesis makes the following contributions in the area of topic identification of spoken documents:
+
+\begin{itemize}
+\item Quantify the importance of \textit{sufficient} keyword retrieval accuracy over word error rate to predict successful topic identification on ASR output.
+\item Proposed a new model for discriminative feature selection to add location sensitivity to bag-of-words classification features.
+\end{itemize}
+
+In Chapter 2 we discussed previous work showing the robustness of the topic signal to automatic speech recognition errors (cf. Figure~\ref{baseline1}).  In Chapter 3 we further elaborated on the relative insensitivity of the topic signal to recognition errors as expressed in terms of WER (cf. Figure~\ref{ch3WER}). We showed that uniformly random word substitutions are significantly more detrimental to topic classification performance than random deletions, but such substitution errors in actual ASR output are not uniformly random.  Not only do a small percentage of words from the overall vocabulary contribute to optimal topic classification performance, as has been previously shown, but only a fraction of these keywords need to be recognized correctly to achieve performance similar to what can be achieved with full human transcripts.  (cf. Table~\ref{ch3KWSpotting}).
+
+In addition to the importance of keyword recognition to the classification task, we also demonstrated a strong location-dependent aspect to the topic signal.  Following from the concept that topicality is related to local co-occurrence of words, combined with the observation that participants in a conversation tend to drift away from the original (labeled) topic, we incorporate this location sensitivity to bag-of-words feature vectors (cf. Section~\ref{sec:topicDrift}).  The proposed discriminative, location-sensitive feature vectors out-perform both full document and static topic-drift models.  
+
+Given these results, particularly the importance of keyword retrieval to topic classification, the remainder of the thesis focused on applying topic information, and the related phenomena of locality and repetition, to improve keyword retrieval performance.
+
+\subsection{Repetition in Keyword Retrieval}
+This thesis makes the following contributions in the modeling of repetition for keyword retrieval:
+
+\begin{itemize}
+\item Developed a general re-scoring algorithm for applying keyword repetition information to keyword retrieval results from any system in any language.
+\item In the context of keyword re-scoring, developed a method for computing the score interpolation weight $\widehat{\alpha}$ that generalizes across languages and can be estimated from the \textit{adaptation} statistics of the training data.
+\end{itemize}
+
+Without modifying the underlying speech recognition or retrieval system, we demonstrated that the presence of a high-scoring keyword in a document could be used to boost the scores for subsequent repetitions.  In arriving at an effective interpolation formula we also showed how modeling repetition reflects unique language characteristics through the iterpolation weight $\widehat{\alpha}$.
+
+\subsection{Joint Topic and Repetition Models}
+This thesis makes the following contributions in topic and language modeling for speech recognition and keyword retrieval:
+
+\begin{itemize}
+\item Demonstrated the complementary use of \textit{broad} (subject matter) and \textit{local} (repetition) context to improve keyword retrieval in a broad range of languages.
+\item Presented a new model for jointly modeling both subject-matter and repetition-based latent topics.  
+\item Developed an extensible topic model that captures the related nature of subject-matter topicality and repetition through its latent cache states.
+\item Showed that latent topics and repetition could be effectively combined in a single joint model that improved speech recognition and keyword retrieval to the same degree as a multi-pass application of individual topic and cache models.
+\end{itemize}
+
+We demonstrated, first in an ad hoc combination, then more formally, how both repetition and subject matter can be expressed in terms of dynamic N-gram language models, and how incorporating those models positively impacts speech recognition and retrieval systems.  In isolation we showed that either \textit{broad topic context} (subject matter) or \textit{local context} (as captured by within-document N-gram repetition) could be added to N-gram languages models to improve repetition.  The magnitude of the effect of either type of topic information depends on language specific characteristics.  However we have shown that together, the two types of topic information are \textit{complementary} in terms of improving speech retrieval in all languages considered.
+
+Based on this result we showed that we can jointly capture the two phenomena with a single model, with positive results both in terms of \textit{intrinsic} analysis of spoken corpora and in terms of \textit{extrinsic}, task-based, retrieval results.  Our model captures properties of word repetition for each corpus under consideration different from traditional frequency-based metrics and demonstrates language-specific behavior consistent with known properties of the languages considered.    When incorporated into speech recognition systems, we can demonstrate on a spectrum of spoken language corpora that our proposed model improves both overall speech recognition accuracy as well as keyword retrieval accuracy.
+
+%Compare favorably to existing approaches on low-resource corpora. (vs. dlm)
+Finally, when we contrast our ad hoc pipeline from Chapter 4 with our formal model from Chatper 5, we show that we can achieve equivalent performance improvements, by incorporating both repetition and subject matter, but with one rather than two additional passes over the audio.
+
+\section{Future Work}
+
+We would suggest that the line of work described here in this thesis can be extended in multiple directions:  first in terms of generalization and further consideration of the models presented in this work, and second in terms of further development of the models from the perspective of computational efficiency.  We feel that broad applicability, in terms of languages to which they are successfully applied, of the concepts discussed in this thesis warrants further exploration of the means by which they might become viable in commercial production systems.
+
+In terms of our proposed cache-augmented topic language models, there are many probabilistic topic model frameworks to which we could consider the addition of explicit cache or repetition behavior.  As an example, it would be reasonable to consider our model under other, more general Dirichlet process or hierarchical topic model frameworks.  We would ask whether the repetition behavior we modeled explicitly might or might not arise naturally and separate from subject-matter topics under other models.  Additionally, we would like to consider frameworks which could efficiently represent N-gram topic mixtures in addition to an N-gram cache.
+
+In terms of efficiency, we highlight two complementary directions for future work.  First, and most straightforward, we would incorporate known Finite State Transducer (FST) composition algorithms designed specifically for using dynamic language models with a WFST-based ASR system such as Kaldi.  For experimental purposes we re-constructed the ASR decoding graph for each segment's topic-cache-augmented model $P_{Ldc}$.  In a production setting, on-the-fly graph construction techniques such as proposed by Allauzen et al. \cite{allauzen2009}, suggest our dynamic language model approach could be efficiently applied.
+
+Secondly, we would examine techniques to speed up estimation of our model parameters for topic and cache usage at the point where new audio is to be decoded.  Indeed with the recent expansion of neural-net (NN) based language models, a natural extension of this work would be to ask what other methods could be used to approximate the topic and cache estimates, $\theta$ and $\kappa$, necessary for generating document-specific cache language models as described in Chapter 5-7.  In particular we would envision comparing our approach with techniques such as Recurrent Neural Network Language models (RNNLMs) or Long-Short-Term Memory language models (LSTMs) which also aim to capture context beyond simple N-grams.
+
+Additionally, in neural net acoustic modeling, there is some evidence that output layers representing context-dependent triphone likelihoods (referred to as \textit{senones}) capture lexical as well as purely acoustic content (cf. \cite{wintrode2015recommender}).  These likelihoods are produced without a full decoding pass from the ASR system and could be used in approximating topic information before lattice generation, resulting in a single pass system.
+
+There are many opportunities for efficiently exploiting topic and repetition for speech recognition and retrieval which we have not listed here.  It is our belief that this will continue to be a rich and widely applicable source of gains for speech processing systems in any language.
+\\[1ex]
+
+\begin{quote}
+\footnotesize
+\noindent What we call the beginning is often the end \\[0.8ex]
+And to make an end is to make a beginning. \\[0.8ex]
+The end is where we start from. And every phrase  \\[0.8ex]
+And sentence that is right (where every word is at home, \\[0.8ex]
+Taking its place to support the others,\\[0.8ex]
+The word neither diffident nor ostentatious, \\[0.8ex]
+An easy commerce of the old and the new,\\[0.8ex]
+The common word exact without vulgarity, \\[0.8ex]
+The formal word precise but not pedantic,\\[0.8ex]
+The complete consort dancing together)\\[0.8ex]
+Every phrase and every sentence is an end and a beginning, \\[0.8ex]
+Every poem an epitaph.\\[2ex]
+\scriptsize T.S. Eliot, \textsc{Little Gidding} \\
+\end{quote}
+
+
+%With the drawing of this Love and the voice of this Calling
+%We shall not cease from exploration
+%And the end of all our exploring 
+%Will be to arrive where we started 
+%And know the place for the first time. 

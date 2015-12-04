@@ -1,0 +1,120 @@
+\newpage
+\chapter{Gibbs Sampler Pseudocode} 
+% the \\ insures the section title is centered below the phrase: AppendixA
+Here we present pseudocode for the implementation of the Gibbs sampler derived in Section~\ref{sec:sampler}.  For practical reasons, we maintain the cache on an utterance by utterance basis.  Cache probabilities are conditioned on counts from all utterances in the document except the one whose states are currently being sampled.
+
+%\chapter{Topic ID result Tables}
+\label{sec:pseudocode}
+\chaptermark{Appendix}
+
+\begin{algorithm}[H]  
+\caption{Sampler initialization}
+\begin{algorithmic}[1]
+%\begin{algorithmic}
+\algsetup{indent=2em}
+\STATE{\textbf{Initialize} $K$ and $Z$ states randomly}
+\FORALL{$t \in \mathcal{T}$}
+    \FORALL{$v \in V$}
+        \STATE{$C^t_v = \sum_{i,d} I(w_{d,i}=v \cap z_{d,i}=t$) }
+    \ENDFOR
+    \STATE{$F_t = \sum_v C^t_v$}
+\ENDFOR
+
+\end{algorithmic}
+\end{algorithm}
+
+The following code snippets are repeated $n$ times for each document $d$,  where $n$ is the overall number of sampling iterations.
+
+\begin{algorithm}[H]  
+\caption{Per-document initialization - each iteration over $d$}
+\begin{algorithmic}[1]
+%\begin{algorithmic}
+\algsetup{indent=2em}
+    \FORALL{$u_j \in d$}
+        \STATE{\textbf{Add} n-grams in $u$ to cache}
+    \ENDFOR
+    \STATE{$L_{d_0} = \sum_i I(k_{d,i}=1$) }
+    \STATE{$T_{d_0} = \sum_i I(k_{d,i}=0$) }
+    \FORALL{$t \in \mathcal{T}$}
+        \STATE{$N_{t} = \sum_i I(z_{d,i}=t$) }
+    \ENDFOR
+
+    \FORALL{$t \in \mathcal{T}$}
+        \FORALL{$v \in V$}
+            \STATE{$C^t_v = \sum_i I(w_{d,i}=v \cap z_{d,i}=t$) }
+        \ENDFOR
+        \STATE{$F_t = \sum_v C^t_v$}
+    \ENDFOR
+ 
+\end{algorithmic}
+\end{algorithm}
+
+We then sample states $K$ and $Z$ one utterance (or sentence) at a time.  We first sample all $K_u$ states, then $Z_u$ states for the current utterance $u$.
+
+\begin{algorithm}[H]  
+\caption{Single iteration - $K_u$} 
+\begin{algorithmic}[1]
+\algsetup{indent=2em}
+%    \FORALL{$u_j \in d$}
+        \STATE{\textbf{Remove} n-grams in $u$ from cache}
+        
+        \FORALL{$w_{d,i}\in u$}
+            \STATE{$k_{old} = k_{d,i}$}
+            \IF{$ k_{old} = 1$}
+	            \STATE{$L_{d_0}=L_{d_0}-1$}
+			    \COMMENT{Decrement cache state count}
+
+                \STATE{$s_0 = (\nu_1 + T_{d_0})$}
+			    \COMMENT{Sampler proportional mass for $k=0$}
+            \ELSE
+                \STATE{$T_{d_0}=T_{d_0}-1$}
+        	    \COMMENT{Decrement topic state count}
+                \STATE{$z_{old} = z_{d,i}$}
+                \COMMENT{Decrement topic count variables}
+                \STATE{$C^{z_{old}}_{w_{d,i}} = C^{z_old}_{w_{d,i}} - 1$}
+                \STATE{$F_{z_{old}} = F_{z_old} - 1$, $N_{z_old} = N_{z_old} - 1$}
+        	    
+        	    \STATE{$s_0 = (\nu_1 + T_{d_0}) \cdot (\beta + C^{(z_{d,i})}_{w_{d,i}} ) / (\beta \cdot |V| + F_t)$}
+            \ENDIF
+	        \STATE{$s_1 = P_{cache}(w_{d,i}) \cdot (\nu_0 + L_{d_0})$}
+	        \PRINT{$s \sim Uniform(0, s_0+s+1)$}
+	        \IF{$s > s_0$}
+	            \STATE{$k_{d,i}=1$, $L_{d_0} = L_{d_0} + 1$}
+	        \ELSE
+	            \STATE{$k_{d,i}=0$, $T_{d_0}=T_{d_0}+1$}
+	            % topic count variables will be updated based on result of z state sampling
+	        \ENDIF
+	    \ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]  
+\caption{Single iteration - $Z_u$} 
+\begin{algorithmic}[1]
+\algsetup{indent=2em}
+	    
+	    \FORALL{$w_{d,i}\in u$ where $k_{d,i}=0$}
+            
+			\FORALL{$t \in \mathcal{T}$}
+			    \STATE{$s_t = (\alpha_t + N_t + 1) \cdot (\beta + C^{t}_{w_{d,i}} + 1) / (\beta \cdot |V| + F_t + 1) $}
+            \ENDFOR
+            \PRINT{$s \sim Uniform(0,\sum_t s_t)$}
+            \STATE{$s_0 = 0$}
+            \FORALL{$t \in \mathcal{T}$}
+                \STATE{$s_0 = s_0 + s_t$}
+                \IF{$s < s_0$}
+                    \STATE{$z_{d,i}=t$}
+                    \COMMENT{New sampled topic is now $t$}
+                    \STATE{$C^t_{w_{d,i}} = C^t_{w_{d,i}} + 1$}
+                    \COMMENT{Increment topic count variables}
+                    \STATE{$F_t = F_t + 1$, $N_t = N_t + 1$}
+                \ENDIF
+            \ENDFOR
+        
+	    \ENDFOR
+	    \STATE{\textbf{Add} n-grams in $u$ back to cache}
+%    \ENDFOR
+
+\end{algorithmic}
+\end{algorithm}
+
