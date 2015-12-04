@@ -203,7 +203,7 @@ $(1-e^{-\mathrm{DF}_w})P_{adapt}(w)$ &  0.477 & 0.415 \\
 
 The global (per-language) interpolation weight clearly outperforms any other choice in terms of keyword accuracy (TWV).   The decrease in $P(Miss)$ is also an important result, because it indicates that our re-scoring does in fact boost repeated keywords above the detection threshold, increasing the number of correct keyword detections.  
 
-We include our final estimate for $\widehat{\alpha}$ with the results for the Full LP (Table~\ref{fig4:FullLP}) and Limited LP condition (Table~\ref{fig4:LimitedLP}).  The relative values correspond to our expectations by language.  The lowest values (least repetition) occur for the Turkish data, a language known for its morphological complexity, hence word units are less likely to repeat.  The highest values occur for Cantonese and Vietnamese, which for the Babel program was transcribed with syllable-level word units.
+We include our final estimate for $\widehat{\alpha}$ with the results for the Full LP (Table~\ref{fig4:FullLP}) and Limited LP condition (Table~\ref{fig4:LimitedLP}).  The relative values correspond to our expectations by language.  The lowest values (least repetition) occur for the Turkish data, a language known for its morphological complexity, hence word units are less likely to repeat.  The highest values occur for Cantonese and Vietnamese, which for the Babel program was transcribed with syllable-level word units.
 
 \subsection{Experiments}
 The complete procedure for each language in each condition (Limited or Full LP) is as follows.  We first estimate adaptation probabilities from the ASR training transcripts.  From these we take the weighted average as described, obtaining a single interpolation weight $\widehat{\alpha}$ for each language and training condition.   We train ASR acoustic and language models from the training corpus using the Kaldi speech recognition toolkit \cite{kaldi} following the default Babel training recipe which is described in detail by Chen et al.\cite{chen2013}
@@ -227,7 +227,7 @@ We decode each development corpus with both Full and Limited LP models to genera
 \begin{tabular}{l|l|r|r} \toprule
 \bf Language & \bf $\widehat{\alpha}$ & \bf TWV (\%$\pm$) & \bf $P(\mathrm{Miss})$ (\%$\pm$) \\\midrule
 \multicolumn{4}{c}{Full LP setting} \\\midrule
-Tagalog & 0.20 & \textbf{0.523} $\,$ (+1.1) & 0.396 $\,$ (-1.9)\\
+Tagalog & 0.20 & \textbf{0.523} $\,$ (+1.1) & 0.396 $\,$ (-1.9)\\
 Cantonese & 0.23 & \textbf{0.418 }$\,$ (+1.3) & 0.458 $\,$ (-1.9) \\
 Pashto & 0.19 & \textbf{0.419} $\,$ (+1.1) & 0.453 $\,$ (-1.6) \\
 Turkish & 0.14 & \textbf{0.466} $\,$ (+0.8) & 0.430 $\,$ (-1.3) \\
