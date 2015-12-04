@@ -3,3 +3,9 @@
 *.toc
 *.nav
 *.log
+*.lof
+*.lot
+*.out
+*.pdf
+*.bbl
+*.blg

@@ -1,0 +1,91 @@
+% model_lda.tex
+%
+% Copyright (C) 2010,2011 Laura Dietz
+% Copyright (C) 2012 Jaakko Luttinen
+%
+% This file may be distributed and/or modified
+%
+% 1. under the LaTeX Project Public License and/or
+% 2. under the GNU General Public License.
+%
+% See the files LICENSE_LPPL and LICENSE_GPL for more details.
+
+% Latent Diriclet allocation model
+
+%\beginpgfgraphicnamed{model-lda}
+%tikzset{
+ % latentnode/.style={draw, minimum width=5mm, shape=circle, ultra thick, black},
+ % dagconn/.style={arrows=->, black, thick},
+% plate/.style={draw, shape=rectangle, rounded corners=0.5ex, thick,
+%   minimum width=3.1cm, text width=3.1cm, align=right, inner sep=10pt, 
+%   inner ysep=10pt,label={[xshift=-14pt,yshift=14pt]south east:#1}  
+%   }
+  
+% plate/.style={
+%   label={[xshift=-14pt,yshift=14pt]south east:#1}
+% }
+  
+%
+
+\begin{tikzpicture}[x=1.7cm,y=1.8cm]
+
+  % Nodes
+
+  \node[obs] (w)  {$w$} ;
+  \node[latent, above=of w,above=0.8cm of w]    (z)      {$z$} ; %
+  \node[latent, left=of w,left=0.45cm of w,yshift=0.5cm]    (k)      {$k$} ; %  
+  \node[latent, above=of z,above=0.75cm of z]    (theta)  {$\theta^{(d)}$}; %
+  \node[latent, left=of theta,left=3.2cm of theta] (atheta) {$\alpha$};
+  \node[latent, left=of z,left=0.5cm of z,yshift=1cm]    (K)  {$\kappa$}; 
+  \node[latent, left=of K,left=2cm of K,yshift=-0.7cm] (p) {$\nu$};
+  
+  % More nodes
+  \node[latent, left=of w,left=3.2cm of w] (phi)  {$\phi^{(z)}$}; %
+  \node[latent, left=of phi,left=1.2cm of phi]  (beta) {$\beta$}; %
+
+  \node[obs, left=of w,left=1.5cm of w,yshift=-1cm] (r)  {$W_{d,-i}$}; %
+
+%  \factor[above=of phi] {phi-f} {right:Dir} {} {} ; %
+
+  \factoredge {p}  {p}     {K} ; %
+  \factoredge {K}  {K}     {k} ; %
+  \factoredge {k}  {k}     {w} ; %
+  \factoredge {theta}  {theta}     {z} ; %
+  \factoredge {atheta} {atheta} {theta} ; %
+
+  \factoredge {phi}    {phi}     {w} ; %
+  \factoredge {r}    {r}     {w} ; %
+  \factoredge {beta}   {beta}   {phi} ; %
+  \factoredge {z}   {z}   {w} ; %
+ 
+  \plate[inner sep=5pt] {plate1} { %
+    (k)
+    (z)
+    (w)%(w-gate) %
+  } {$|d|$}; %
+%  \plate[inner sep=5pt] {uttplate} {
+%    (plate1)
+%    (z)%(z-f)(z-f-caption) %
+%  } {$U_d$}
+  \plate[inner sep=5pt] {docplate} {
+	(plate1)
+	(K)
+	(r)
+	(theta)% (theta-f)(theta-f-caption) %
+  } {$D$} ; %
+
+  \plate[inner sep=5pt] {} { %
+    (phi)%(phi-f)(phi-f-caption) %
+  } {$T\cdot V^{N-1}$} ; %
+
+%  \plate[inner sep=5pt] {} { %
+%   (atheta)
+%  } {$L$};
+
+\end{tikzpicture}
+%\endpgfgraphicnamed
+
+%%% Local Variables: 
+%%% mode: tex-pdf
+%%% Tex-master: "example"
+%%% End: 
